@@ -44,7 +44,7 @@ export const PersonsView: React.FC<{
       const memberships = data.memberships.filter(m => m.personId === person.id && m.isActive);
       const isPriest = person.code?.startsWith('PR') || person.name.includes('القمص') || person.name.includes('أبونا') || memberships.some(m => m.role === 'priest');
       const isServantOrLeader = memberships.some(m => m.role === 'servant' || m.role === 'leader');
-      const isMember = memberships.some(m => m.role === 'member');
+      const isMember = memberships.some(m => m.role === 'member') || (!isPriest && !isServantOrLeader);
 
       if (activeSubTab === 'priests' && !isPriest) return false;
       if (activeSubTab === 'servants' && !isServantOrLeader) return false;
