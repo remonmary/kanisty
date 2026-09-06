@@ -399,6 +399,320 @@ async function startServer() {
     res.json(churchId ? all.filter(n => n.churchId === churchId) : all);
   });
 
+  // Auth: Register Church
+  app.post('/api/auth/register-church', (req, res) => {
+    const { name, region, address, phone, password, adminName, email } = req.body;
+    if (!name || !phone || !password) {
+      return res.status(400).json({ error: 'اسم الكنيسة ورقم الموبايل وكلمة السر حقول مطلوبة' });
+    }
+
+    const cleanPhone = phone.trim();
+    const existingChurch = db.getChurches().find(c => c.phone === cleanPhone);
+    if (existingChurch) {
+      return res.status(400).json({ error: 'يوجد كنيسة مسجلة بالفعل بهذا الرقم، يرجى تسجيل الدخول أو استخدام رقم آخر' });
+    }
+
+    const newChurchId = `church-${Date.now()}`;
+    const newChurch = {
+      id: newChurchId,
+      name: name.trim(),
+      logo: '⛪',
+      region: region?.trim() || 'عام',
+      address: address?.trim() || '',
+      phone: cleanPhone,
+      password: password.trim(),
+      adminName: adminName?.trim() || 'أبونا المسؤول',
+      email: email?.trim() || '',
+      settings: {
+        attendanceTypes: [
+          { id: 'meeting', label: 'اجتماع أسبوعي', icon: 'Users' },
+          { id: 'liturgy', label: 'قداس إلهي', icon: 'Church' },
+          { id: 'activity', label: 'نشاط وورشة عمل', icon: 'Smile' },
+          { id: 'choir', label: 'تمرين كورال', icon: 'Music' }
+        ],
+        attendanceStatuses: [
+          { id: 'present', label: 'حاضر', color: '#16a34a', badgeBg: 'bg-emerald-50', badgeText: 'text-emerald-700' },
+          { id: 'absent', label: 'غائب', color: '#dc2626', badgeBg: 'bg-rose-50', badgeText: 'text-rose-700' },
+          { id: 'excused', label: 'اعتذار مسبق', color: '#d97706', badgeBg: 'bg-amber-50', badgeText: 'text-amber-700' }
+        ],
+        visitationMethods: [
+          { id: 'call', label: 'مكالمة هاتفية', icon: 'Phone' },
+          { id: 'message', label: 'رسالة واتساب', icon: 'MessageCircle' },
+          { id: 'visit', label: 'زيارة منزلية', icon: 'Home' },
+          { id: 'in_person', label: 'مقابلة بالكنيسة', icon: 'UserCheck' }
+        ],
+        stages: ['حضانة', 'ابتدائي', 'إعدادي', 'ثانوي', 'جامعيين', 'خريجين', 'عامة']
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    db.addChurch(newChurch);
+
+    // Create primary admin account for this church
+    const adminAccount = {
+      id: `acc-admin-${Date.now()}`,
+      churchId: newChurchId,
+      name: adminName?.trim() || `مسؤول ${name}`,
+      phone: cleanPhone,
+      password: password.trim(),
+      role: 'priest' as const,
+      roleTitle: 'المشرف العام ومسؤول الكنيسة',
+      permissions: {
+        canManagePersons: true,
+        canTakeAttendance: true,
+        canLogVisitations: true,
+        canCreatePreparations: true,
+        canManageTasks: true,
+        canPostAnnouncements: true,
+        canViewReports: true,
+        canManageUsers: true,
+        canAccessSettings: true
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    db.addAccount(adminAccount);
+
+    db.logAction({
+      id: `log-${Date.now()}`,
+      churchId: newChurchId,
+      action: 'تسجيل كنيسة جديدة',
+      userName: adminAccount.name,
+      details: `تم تسجيل كنيسة: ${newChurch.name} بنجاح مع حساب المسؤول`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      church: newChurch,
+      account: adminAccount
+    });
+  });
+
+  // Auth: Login with Phone & Password
+  app.post('/api/auth/login', (req, res) => {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
+      return res.status(400).json({ error: 'يرجى إدخال رقم الموبايل وكلمة السر' });
+    }
+
+    const cleanPhone = phone.trim();
+    const cleanPassword = password.trim();
+
+    // 1. Check user accounts first
+    const accounts = db.getAccounts();
+    const matchedAccount = accounts.find(
+      a => a.phone === cleanPhone && a.password === cleanPassword
+    );
+
+    if (matchedAccount) {
+      const church = db.getChurches().find(c => c.id === matchedAccount.churchId);
+      if (church) {
+        matchedAccount.lastLogin = new Date().toISOString();
+        db.updateAccount(matchedAccount.id, { lastLogin: matchedAccount.lastLogin });
+
+        db.logAction({
+          id: `log-${Date.now()}`,
+          churchId: church.id,
+          action: 'تسجيل دخول مستخدم',
+          userName: matchedAccount.name,
+          details: `تم تسجيل الدخول بحساب: ${matchedAccount.name} (${matchedAccount.roleTitle || matchedAccount.role})`,
+          timestamp: new Date().toISOString()
+        });
+
+        return res.json({
+          success: true,
+          church,
+          account: matchedAccount
+        });
+      }
+    }
+
+    // 2. Check direct church admin credentials
+    const matchedChurch = db.getChurches().find(
+      c => c.phone === cleanPhone && (c.password === cleanPassword || !c.password)
+    );
+
+    if (matchedChurch) {
+      // Find or generate admin account
+      let churchAdminAccount = accounts.find(a => a.churchId === matchedChurch.id && a.role === 'priest');
+      if (!churchAdminAccount) {
+        churchAdminAccount = {
+          id: `acc-admin-${matchedChurch.id}`,
+          churchId: matchedChurch.id,
+          name: matchedChurch.adminName || matchedChurch.name,
+          phone: matchedChurch.phone,
+          password: cleanPassword,
+          role: 'priest',
+          roleTitle: 'مسؤول الكنيسة',
+          permissions: {
+            canManagePersons: true,
+            canTakeAttendance: true,
+            canLogVisitations: true,
+            canCreatePreparations: true,
+            canManageTasks: true,
+            canPostAnnouncements: true,
+            canViewReports: true,
+            canManageUsers: true,
+            canAccessSettings: true
+          },
+          createdAt: new Date().toISOString()
+        };
+        db.addAccount(churchAdminAccount);
+      }
+
+      return res.json({
+        success: true,
+        church: matchedChurch,
+        account: churchAdminAccount
+      });
+    }
+
+    return res.status(401).json({ error: 'رقم الموبايل أو كلمة السر غير صحيحة، يرجى التأكد والمحاولة ثانية' });
+  });
+
+  // User Accounts (RBAC)
+  app.get('/api/accounts', (req, res) => {
+    const churchId = req.query.churchId as string;
+    res.json(db.getAccounts(churchId));
+  });
+
+  app.post('/api/accounts', (req, res) => {
+    const { churchId, name, phone, password, role, roleTitle, serviceIds, permissions, personId } = req.body;
+    if (!churchId || !name || !phone || !password) {
+      return res.status(400).json({ error: 'اسم الخادم، الكنيسة، رقم الموبايل، وكلمة السر حقول مطلوبة' });
+    }
+
+    const cleanPhone = phone.trim();
+    const existing = db.getAccounts(churchId).find(a => a.phone === cleanPhone);
+    if (existing) {
+      return res.status(400).json({ error: 'يوجد حساب مسجل بالفعل برقم الموبايل هذا في الكنيسة' });
+    }
+
+    const defaultPerms = role === 'priest' ? {
+      canManagePersons: true,
+      canTakeAttendance: true,
+      canLogVisitations: true,
+      canCreatePreparations: true,
+      canManageTasks: true,
+      canPostAnnouncements: true,
+      canViewReports: true,
+      canManageUsers: true,
+      canAccessSettings: true
+    } : role === 'leader' ? {
+      canManagePersons: true,
+      canTakeAttendance: true,
+      canLogVisitations: true,
+      canCreatePreparations: true,
+      canManageTasks: true,
+      canPostAnnouncements: true,
+      canViewReports: true,
+      canManageUsers: false,
+      canAccessSettings: false
+    } : {
+      canManagePersons: false,
+      canTakeAttendance: true,
+      canLogVisitations: true,
+      canCreatePreparations: true,
+      canManageTasks: true,
+      canPostAnnouncements: false,
+      canViewReports: false,
+      canManageUsers: false,
+      canAccessSettings: false
+    };
+
+    const newAccount = {
+      id: req.body.id || `acc-${Date.now()}`,
+      churchId,
+      name: name.trim(),
+      phone: cleanPhone,
+      password: password.trim(),
+      role: role || 'servant',
+      roleTitle: roleTitle?.trim() || (role === 'priest' ? 'كاهن' : role === 'leader' ? 'أمين خدمة' : 'خادم'),
+      serviceIds: serviceIds || [],
+      permissions: permissions || defaultPerms,
+      personId: personId || undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    db.addAccount(newAccount);
+
+    db.logAction({
+      id: `log-${Date.now()}`,
+      churchId,
+      action: 'إنشاء حساب خادم / صلاحيات',
+      userName: req.body.operatorName || 'مسؤول الكنيسة',
+      details: `تم إنشاء حساب لـ ${newAccount.name} بدور (${newAccount.roleTitle})`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(201).json(newAccount);
+  });
+
+  app.put('/api/accounts/:id', (req, res) => {
+    const updated = db.updateAccount(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Account not found' });
+
+    db.logAction({
+      id: `log-${Date.now()}`,
+      churchId: updated.churchId,
+      action: 'تحديث صلاحيات حساب',
+      userName: req.body.operatorName || 'مسؤول الكنيسة',
+      details: `تم تحديث بيانات وصلاحيات الحساب: ${updated.name}`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json(updated);
+  });
+
+  app.delete('/api/accounts/:id', (req, res) => {
+    const acc = db.getAccounts().find(a => a.id === req.params.id);
+    if (acc) {
+      db.deleteAccount(req.params.id);
+      db.logAction({
+        id: `log-${Date.now()}`,
+        churchId: acc.churchId,
+        action: 'حذف حساب مستخدم',
+        userName: 'مسؤول الكنيسة',
+        details: `تم حذف حساب ${acc.name}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+    res.json({ success: true });
+  });
+
+  // Reset all records for a specific church so they can start from zero
+  app.post('/api/church-reset/:churchId', (req, res) => {
+    const churchId = req.params.churchId;
+    const church = db.getChurches().find(c => c.id === churchId);
+    if (!church) return res.status(404).json({ error: 'Church not found' });
+
+    db.resetChurchData(churchId);
+
+    db.logAction({
+      id: `log-${Date.now()}`,
+      churchId,
+      action: 'تصفير بيانات الكنيسة',
+      userName: req.body.operatorName || 'مسؤول الكنيسة',
+      details: `تم تصفير جميع المخدومين والحضور والخدمات للكنيسة (${church.name}) للبدء من الصفر تماماً`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({
+      success: true,
+      message: `تم تصفير بيانات كنيسة (${church.name}) بنجاح. يمكنك الآن البدء من الصفر بإضافة الخدمات والمخدومين.`
+    });
+  });
+
+  // Wipe complete database
+  app.post('/api/wipe-database', (req, res) => {
+    db.wipeDatabase();
+    res.json({
+      success: true,
+      message: 'تم تصفير قاعدة البيانات بالكامل. يمكنك الآن تسجيل كنيستك والبدء من الصفر.'
+    });
+  });
+
   // Full Backup & Restore
   app.get('/api/backup', (req, res) => {
     res.json(db.getData());

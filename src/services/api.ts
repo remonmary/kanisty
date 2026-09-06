@@ -13,7 +13,8 @@ import {
   Announcement,
   Parent,
   AuditLog,
-  AppNotification
+  AppNotification,
+  UserAccount
 } from '../types';
 
 export interface ScopedChurchData {
@@ -32,6 +33,7 @@ export interface ScopedChurchData {
   parents: Parent[];
   auditLogs: AuditLog[];
   notifications: AppNotification[];
+  accounts: UserAccount[];
 }
 
 export const api = {
@@ -268,6 +270,91 @@ export const api = {
   async resetSeed(): Promise<void> {
     const res = await fetch('/api/reset-seed', { method: 'POST' });
     if (!res.ok) throw new Error('Failed to reset seed data');
+  },
+
+  // Auth & Church Registration
+  async registerChurch(payload: {
+    name: string;
+    region?: string;
+    address?: string;
+    phone: string;
+    password: string;
+    adminName?: string;
+    email?: string;
+  }): Promise<{ success: boolean; church: Church; account: UserAccount }> {
+    const res = await fetch('/api/auth/register-church', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل في تسجيل الكنيسة');
+    return data;
+  },
+
+  async login(phone: string, password: string): Promise<{ success: boolean; church: Church; account: UserAccount }> {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تسجيل الدخول');
+    return data;
+  },
+
+  // User Accounts & RBAC
+  async getAccounts(churchId?: string): Promise<UserAccount[]> {
+    const url = churchId ? `/api/accounts?churchId=${encodeURIComponent(churchId)}` : '/api/accounts';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to load accounts');
+    return res.json();
+  },
+
+  async addAccount(account: Partial<UserAccount>): Promise<UserAccount> {
+    const res = await fetch('/api/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(account)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to add account');
+    return data;
+  },
+
+  async updateAccount(id: string, update: Partial<UserAccount>): Promise<UserAccount> {
+    const res = await fetch(`/api/accounts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update account');
+    return data;
+  },
+
+  async deleteAccount(id: string): Promise<void> {
+    const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete account');
+  },
+
+  // Database Reset Operations
+  async resetChurchData(churchId: string, operatorName?: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`/api/church-reset/${encodeURIComponent(churchId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operatorName })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تصفير بيانات الكنيسة');
+    return data;
+  },
+
+  async wipeDatabase(): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/wipe-database', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'فشل تصفير قاعدة البيانات');
+    return data;
   },
 
   // Backup & Restore

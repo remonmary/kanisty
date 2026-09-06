@@ -16,7 +16,9 @@ import {
   Megaphone,
   Archive,
   ChevronLeft,
-  HeartHandshake
+  HeartHandshake,
+  Shield,
+  LogOut
 } from 'lucide-react';
 import { ROLE_BADGES } from '../utils/churchUtils';
 
@@ -33,7 +35,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, onOpe
     data,
     activeChurch,
     currentUser,
-    effectiveOverallRole
+    currentAccount,
+    effectiveOverallRole,
+    canAccessTab,
+    logout
   } = useChurch();
 
   // Calculate badges
@@ -56,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, onOpe
     return recent.length >= 3 && recent.every(r => r.status === 'absent');
   }).length;
 
-  const navSections = [
+  const allNavSections = [
     {
       group: 'الرئيسية',
       items: [
@@ -109,10 +114,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, onOpe
       items: [
         { id: 'reports', label: 'التقارير والتصدير', icon: BarChart3, emoji: '📊' },
         { id: 'archive', label: 'الأرشيف', icon: Archive, emoji: '🗄️' },
-        { id: 'settings', label: 'الإعدادات والنسخ', icon: Settings, emoji: '⚙️' }
+        { id: 'accounts', label: 'حسابات وصلاحيات الخدام', icon: Shield, emoji: '🛡️' },
+        { id: 'settings', label: 'الإعدادات وتصفير البيانات', icon: Settings, emoji: '⚙️' }
       ]
     }
   ];
+
+  // Filter sections by access permissions
+  const navSections = allNavSections
+    .map(sec => ({
+      ...sec,
+      items: sec.items.filter(it => canAccessTab(it.id))
+    }))
+    .filter(sec => sec.items.length > 0);
+
+  const displayUserName = currentAccount?.name || currentUser?.name || 'مسؤول الكنيسة';
+  const displayRoleTitle = currentAccount?.roleTitle || (ROLE_BADGES[effectiveOverallRole]?.label || 'مسؤول');
 
   return (
     <>
@@ -138,8 +155,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, onOpe
               ⛪
             </div>
             <div className="flex flex-col">
-              <span className="text-white font-bold text-lg leading-tight">نظام كنيستي</span>
-              <span className="text-xs text-slate-500">إدارة الكنيسة المركزية</span>
+              <span className="text-white font-bold text-lg leading-tight truncate max-w-[130px]" title={activeChurch?.name || 'نظام كنيستي'}>
+                {activeChurch?.name || 'نظام كنيستي'}
+              </span>
+              <span className="text-xs text-amber-400/90 font-medium truncate max-w-[130px]">
+                {activeChurch?.region || 'إدارة الكنيسة'}
+              </span>
             </div>
           </div>
           {onClose && (
@@ -197,36 +218,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, onOpe
           ))}
         </nav>
 
-        {/* User Footer Profile */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50 flex items-center justify-between">
+        {/* User Footer Profile & Logout */}
+        <div className="p-3.5 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-slate-700 ml-3 flex items-center justify-center font-bold text-white text-xs overflow-hidden border border-slate-600">
-              {currentUser?.photo ? (
-                <img
-                  src={currentUser.photo}
-                  alt={currentUser.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <span>{currentUser?.name?.slice(0, 1) || '👤'}</span>
-              )}
+            <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 ml-2.5 flex items-center justify-center font-bold text-xs">
+              {displayUserName.slice(0, 1)}
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-white uppercase leading-tight truncate max-w-[110px]">
-                {currentUser?.name || 'أبونا مرقس'}
+              <span className="text-xs font-bold text-white truncate max-w-[110px]" title={displayUserName}>
+                {displayUserName}
               </span>
-              <span className="text-[10px] text-slate-500">
-                {ROLE_BADGES[effectiveOverallRole]?.label || 'مسؤول الكنيسة'}
+              <span className="text-[10px] text-slate-400 truncate max-w-[110px]">
+                {displayRoleTitle}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-            <HeartHandshake className="w-3 h-3 text-emerald-400" />
-            <span>معزول</span>
-          </div>
+          <button
+            onClick={logout}
+            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+            title="تسجيل الخروج"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </aside>
     </>
   );
 };
+

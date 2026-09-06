@@ -16,6 +16,8 @@ import { AnnouncementsView } from './components/AnnouncementsView';
 import { ReportsView } from './components/ReportsView';
 import { ArchiveView } from './components/ArchiveView';
 import { SettingsView } from './components/SettingsView';
+import { AccountsManagementView } from './components/AccountsManagementView';
+import { AuthView } from './components/AuthView';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { PersonProfileModal } from './components/PersonProfileModal';
 import { LogVisitModal } from './components/LogVisitModal';
@@ -24,10 +26,25 @@ import { AddChurchModal } from './components/AddChurchModal';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, toastMessage, isLoading } = useChurch();
+  const { activeTab, toastMessage, isLoading, isLoggedIn, canAccessTab } = useChurch();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
   const [isAddChurchOpen, setIsAddChurchOpen] = useState(false);
+
+  // If not logged in, show church login and registration interface
+  if (!isLoggedIn) {
+    return (
+      <>
+        <AuthView />
+        {toastMessage && (
+          <div className="fixed bottom-6 left-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl border border-slate-700 animate-fade-in text-xs font-bold">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div
@@ -64,21 +81,30 @@ const AppContent: React.FC = () => {
                 {activeTab === 'dashboard' && (
                   <DashboardView onOpenAddPerson={() => setIsAddPersonOpen(true)} />
                 )}
-                {activeTab === 'persons' && (
+                {activeTab === 'persons' && canAccessTab('persons') && (
                   <PersonsView onOpenAddPerson={() => setIsAddPersonOpen(true)} />
                 )}
-                {activeTab === 'attendance' && <AttendanceView />}
-                {activeTab === 'visitation' && <VisitationView />}
-                {activeTab === 'preparation' && <PreparationView />}
-                {activeTab === 'services' && <ServicesView />}
+                {activeTab === 'attendance' && canAccessTab('attendance') && <AttendanceView />}
+                {activeTab === 'visitation' && canAccessTab('visitation') && <VisitationView />}
+                {activeTab === 'preparation' && canAccessTab('preparation') && <PreparationView />}
+                {activeTab === 'services' && canAccessTab('services') && <ServicesView />}
                 {activeTab === 'library' && <LibraryView />}
-                {activeTab === 'tasks' && <TasksView />}
+                {activeTab === 'tasks' && canAccessTab('tasks') && <TasksView />}
                 {activeTab === 'birthdays' && <BirthdaysView />}
                 {activeTab === 'calendar' && <CalendarView />}
                 {activeTab === 'announcements' && <AnnouncementsView />}
-                {activeTab === 'reports' && <ReportsView />}
-                {activeTab === 'archive' && <ArchiveView />}
-                {activeTab === 'settings' && <SettingsView />}
+                {activeTab === 'reports' && canAccessTab('reports') && <ReportsView />}
+                {activeTab === 'archive' && canAccessTab('archive') && <ArchiveView />}
+                {activeTab === 'accounts' && canAccessTab('accounts') && <AccountsManagementView />}
+                {activeTab === 'settings' && canAccessTab('settings') && <SettingsView />}
+
+                {/* Unauthorized tab fallback */}
+                {!canAccessTab(activeTab) && (
+                  <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-3">
+                    <p className="text-amber-700 font-bold text-base">ليس لديك صلاحية للوصول إلى هذا القسم</p>
+                    <p className="text-xs text-slate-500">يرجى مراجعة أبونا كاهن الكنيسة أو أمين الخدمة لمنحك الصلاحية اللازمة.</p>
+                  </div>
+                )}
               </>
             )}
           </div>

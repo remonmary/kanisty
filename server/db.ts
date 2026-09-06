@@ -15,7 +15,8 @@ import {
   Announcement,
   Parent,
   AuditLog,
-  AppNotification
+  AppNotification,
+  UserAccount
 } from '../src/types.js';
 
 export interface DatabaseSchema {
@@ -34,6 +35,7 @@ export interface DatabaseSchema {
   parents: Parent[];
   auditLogs: AuditLog[];
   notifications: AppNotification[];
+  accounts: UserAccount[];
 }
 
 const DB_DIR = path.join(process.cwd(), 'data');
@@ -47,7 +49,9 @@ export function getInitialSeed(): DatabaseSchema {
       logo: '⛪',
       region: 'القاهرة / الظاهر',
       address: 'شارع كلوت بك، الظاهر، القاهرة',
-      phone: '02-25912345',
+      phone: '01000000001',
+      password: '123456',
+      adminName: 'القمص / متى إبراهيم',
       email: 'stmichael.elzaher@kenisati.org',
       settings: {
         attendanceTypes: [
@@ -84,7 +88,9 @@ export function getInitialSeed(): DatabaseSchema {
       logo: '⛪',
       region: 'الجيزة / الدقي',
       address: 'ميدان المساحة، الدقي، الجيزة',
-      phone: '02-37489012',
+      phone: '01000000002',
+      password: '123456',
+      adminName: 'أبونا مرقس حبيب',
       email: 'stmark.dokki@kenisati.org',
       settings: {
         attendanceTypes: [
@@ -1069,6 +1075,116 @@ export function getInitialSeed(): DatabaseSchema {
     }
   ];
 
+  const accounts: UserAccount[] = [
+    {
+      id: 'acc-admin-church-1',
+      churchId: 'church-1',
+      name: 'القمص / متى إبراهيم',
+      phone: '01000000001',
+      password: '123456',
+      role: 'priest',
+      roleTitle: 'كاهن الكنيسة والمشرف العام',
+      permissions: {
+        canManagePersons: true,
+        canTakeAttendance: true,
+        canLogVisitations: true,
+        canCreatePreparations: true,
+        canManageTasks: true,
+        canPostAnnouncements: true,
+        canViewReports: true,
+        canManageUsers: true,
+        canAccessSettings: true
+      },
+      createdAt: '2024-01-01T00:00:00.000Z'
+    },
+    {
+      id: 'acc-priest-bishoy',
+      churchId: 'church-1',
+      name: 'أبونا بيشوي كامل',
+      phone: '01222222221',
+      password: '123456',
+      role: 'priest',
+      roleTitle: 'كاهن ومسؤول الشباب والافتقاد',
+      permissions: {
+        canManagePersons: true,
+        canTakeAttendance: true,
+        canLogVisitations: true,
+        canCreatePreparations: true,
+        canManageTasks: true,
+        canPostAnnouncements: true,
+        canViewReports: true,
+        canManageUsers: true,
+        canAccessSettings: true
+      },
+      createdAt: '2024-01-01T00:00:00.000Z'
+    },
+    {
+      id: 'acc-leader-mark',
+      churchId: 'church-1',
+      name: 'أ. مارك نبيل فرج',
+      phone: '01111111112',
+      password: '123456',
+      role: 'leader',
+      roleTitle: 'أمين خدمة المرحلة الإعدادية',
+      serviceIds: ['srv-prep'],
+      permissions: {
+        canManagePersons: true,
+        canTakeAttendance: true,
+        canLogVisitations: true,
+        canCreatePreparations: true,
+        canManageTasks: true,
+        canPostAnnouncements: true,
+        canViewReports: true,
+        canManageUsers: false,
+        canAccessSettings: false
+      },
+      createdAt: '2024-01-10T00:00:00.000Z'
+    },
+    {
+      id: 'acc-servant-sara',
+      churchId: 'church-1',
+      name: 'تريزا عادل فهمي',
+      phone: '01033333333',
+      password: '123456',
+      role: 'servant',
+      roleTitle: 'خادمة ومتابعة أسر إعدادي',
+      serviceIds: ['srv-prep'],
+      permissions: {
+        canManagePersons: false,
+        canTakeAttendance: true,
+        canLogVisitations: true,
+        canCreatePreparations: true,
+        canManageTasks: true,
+        canPostAnnouncements: false,
+        canViewReports: false,
+        canManageUsers: false,
+        canAccessSettings: false
+      },
+      createdAt: '2024-01-15T00:00:00.000Z'
+    },
+    {
+      id: 'acc-admin-church-2',
+      churchId: 'church-2',
+      name: 'أبونا مرقس حبيب',
+      phone: '01000000002',
+      password: '123456',
+      role: 'priest',
+      roleTitle: 'كاهن ومشرف كنيسة مارمرقس',
+      permissions: {
+        canManagePersons: true,
+        canTakeAttendance: true,
+        canLogVisitations: true,
+        canCreatePreparations: true,
+        canManageTasks: true,
+        canPostAnnouncements: true,
+        canViewReports: true,
+        canManageUsers: true,
+        canAccessSettings: true
+      },
+      createdAt: '2024-02-15T00:00:00.000Z'
+    }
+  ];
+
   return {
     churches,
     persons,
@@ -1084,7 +1200,8 @@ export function getInitialSeed(): DatabaseSchema {
     announcements,
     parents,
     auditLogs,
-    notifications
+    notifications,
+    accounts
   };
 }
 
@@ -1102,7 +1219,9 @@ export class JsonDatabase {
       }
       if (fs.existsSync(DB_FILE)) {
         const fileContent = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(fileContent);
+        const parsed = JSON.parse(fileContent);
+        parsed.accounts = parsed.accounts || [];
+        return parsed;
       }
     } catch (err) {
       console.error('Failed to load database from file, initializing seed:', err);
@@ -1174,7 +1293,8 @@ export class JsonDatabase {
       announcements: this.data.announcements.filter(an => an.churchId === churchId),
       parents: this.data.parents.filter(pa => pa.churchId === churchId),
       auditLogs: this.data.auditLogs.filter(al => al.churchId === churchId),
-      notifications: this.data.notifications.filter(n => n.churchId === churchId)
+      notifications: this.data.notifications.filter(n => n.churchId === churchId),
+      accounts: (this.data.accounts || []).filter(a => a.churchId === churchId)
     };
   }
 
@@ -1359,6 +1479,80 @@ export class JsonDatabase {
     }
     this.save();
     return log;
+  }
+
+  // User Accounts & RBAC
+  public getAccounts(churchId?: string): UserAccount[] {
+    const list = this.data.accounts || [];
+    return churchId ? list.filter(a => a.churchId === churchId) : list;
+  }
+
+  public addAccount(account: UserAccount) {
+    if (!this.data.accounts) this.data.accounts = [];
+    this.data.accounts.push(account);
+    this.save();
+    return account;
+  }
+
+  public updateAccount(id: string, update: Partial<UserAccount>) {
+    if (!this.data.accounts) this.data.accounts = [];
+    const idx = this.data.accounts.findIndex(a => a.id === id);
+    if (idx !== -1) {
+      this.data.accounts[idx] = { ...this.data.accounts[idx], ...update };
+      this.save();
+      return this.data.accounts[idx];
+    }
+    return null;
+  }
+
+  public deleteAccount(id: string) {
+    if (!this.data.accounts) this.data.accounts = [];
+    this.data.accounts = this.data.accounts.filter(a => a.id !== id);
+    this.save();
+    return true;
+  }
+
+  // Reset all records for a specific church to start completely clean from 0
+  public resetChurchData(churchId: string) {
+    this.data.persons = this.data.persons.filter(p => p.churchId !== churchId);
+    this.data.services = this.data.services.filter(s => s.churchId !== churchId);
+    this.data.meetings = this.data.meetings.filter(m => m.churchId !== churchId);
+    this.data.groups = this.data.groups.filter(g => g.churchId !== churchId);
+    this.data.memberships = this.data.memberships.filter(m => m.churchId !== churchId);
+    this.data.attendance = this.data.attendance.filter(a => a.churchId !== churchId);
+    this.data.visitations = this.data.visitations.filter(v => v.churchId !== churchId);
+    this.data.preparations = this.data.preparations.filter(pr => pr.churchId !== churchId);
+    this.data.library = this.data.library.filter(l => l.churchId !== churchId);
+    this.data.tasks = this.data.tasks.filter(t => t.churchId !== churchId);
+    this.data.announcements = this.data.announcements.filter(an => an.churchId !== churchId);
+    this.data.parents = this.data.parents.filter(pa => pa.churchId !== churchId);
+    this.data.notifications = this.data.notifications.filter(n => n.churchId !== churchId);
+    this.save();
+    return this.getChurchData(churchId);
+  }
+
+  // Complete database wipe to start from scratch
+  public wipeDatabase(): DatabaseSchema {
+    const blank: DatabaseSchema = {
+      churches: [],
+      persons: [],
+      services: [],
+      meetings: [],
+      groups: [],
+      memberships: [],
+      attendance: [],
+      visitations: [],
+      preparations: [],
+      library: [],
+      tasks: [],
+      announcements: [],
+      parents: [],
+      auditLogs: [],
+      notifications: [],
+      accounts: []
+    };
+    this.save(blank);
+    return blank;
   }
 }
 

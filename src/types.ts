@@ -2,6 +2,33 @@ export type UserRole = 'priest' | 'leader' | 'servant' | 'member';
 
 export type AttendanceStatus = 'present' | 'absent' | 'excused' | 'late' | 'excused_absence';
 
+export interface UserPermissions {
+  canManagePersons: boolean;      // إضافة وتعديل الأشخاص والمخدومين
+  canTakeAttendance: boolean;     // تسجيل الحضور والغياب
+  canLogVisitations: boolean;     // تسجيل ومتابعة الافتقاد
+  canCreatePreparations: boolean; // إعداد ونشر الدروس والتحضير
+  canManageTasks: boolean;        // إدارة وتكليف المهام
+  canPostAnnouncements: boolean;  // نشر الإعلانات
+  canViewReports: boolean;        // الاطلاع على التقارير والإحصائيات
+  canManageUsers: boolean;        // إدارة حسابات الخدام والصلاحيات
+  canAccessSettings: boolean;     // إعدادات الكنيسة والنسخ وتصفير البيانات
+}
+
+export interface UserAccount {
+  id: string;
+  churchId: string;
+  name: string;
+  phone: string;
+  password?: string;
+  role: UserRole; // 'priest' | 'leader' | 'servant' | 'member'
+  roleTitle?: string;
+  serviceIds?: string[];
+  permissions: UserPermissions;
+  personId?: string;
+  createdAt: string;
+  lastLogin?: string;
+}
+
 export interface ChurchSettings {
   attendanceTypes: { id: string; label: string; icon?: string }[];
   attendanceStatuses: { id: string; label: string; color: string; badgeBg: string; badgeText: string }[];
@@ -16,6 +43,8 @@ export interface Church {
   region: string;
   address: string;
   phone: string;
+  password?: string;
+  adminName?: string;
   email: string;
   settings: ChurchSettings;
   createdAt: string;
