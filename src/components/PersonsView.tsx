@@ -12,10 +12,13 @@ import {
   Archive,
   PhoneCall,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Edit
 } from 'lucide-react';
 import { getPersonAttendanceStats, ROLE_BADGES } from '../utils/churchUtils';
 import { api } from '../services/api';
+import { Person } from '../types';
+import { EditPersonModal } from './EditPersonModal';
 
 export const PersonsView: React.FC<{
   onOpenAddPerson: () => void;
@@ -29,6 +32,7 @@ export const PersonsView: React.FC<{
     showToast
   } = useChurch();
 
+  const [personToEdit, setPersonToEdit] = useState<Person | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'servants' | 'members' | 'priests' | 'parents'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedServiceFilter, setSelectedServiceFilter] = useState<string>('all');
@@ -377,10 +381,17 @@ export const PersonsView: React.FC<{
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => setSelectedPersonForProfile(person)}
-                              className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px] transition-colors"
+                              className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px] transition-colors"
                               title="فتح الملف الشامل"
                             >
                               الملف
+                            </button>
+                            <button
+                              onClick={() => setPersonToEdit(person)}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-800 transition-colors"
+                              title="تعديل بيانات الشخص"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => openLogVisitModal(person)}
@@ -406,6 +417,15 @@ export const PersonsView: React.FC<{
             </table>
           </div>
         </div>
+      )}
+
+      {/* Edit Person Modal */}
+      {personToEdit && (
+        <EditPersonModal
+          person={personToEdit}
+          isOpen={!!personToEdit}
+          onClose={() => setPersonToEdit(null)}
+        />
       )}
     </div>
   );

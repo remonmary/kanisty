@@ -206,6 +206,26 @@ export function getInitialSeed(): DatabaseSchema {
       time: '06:30 م',
       location: 'غرفة الموسيقى والتسجيل',
       createdAt: '2024-01-15'
+    },
+    {
+      id: 'meet-sec-fri',
+      churchId: 'church-1',
+      serviceId: 'srv-sec',
+      name: 'اجتماع ثانوي الأسبوعي',
+      dayOfWeek: 'الجمعة',
+      time: '06:00 م',
+      location: 'قاعة القديس أثناسيوس',
+      createdAt: '2024-01-15'
+    },
+    {
+      id: 'meet-pri-fri',
+      churchId: 'church-1',
+      serviceId: 'srv-pri',
+      name: 'مدارس أحد الجمعة',
+      dayOfWeek: 'الجمعة',
+      time: '09:30 ص',
+      location: 'فصول مبنى الخدمات',
+      createdAt: '2024-01-15'
     }
   ];
 

@@ -21,6 +21,7 @@ import {
   Award
 } from 'lucide-react';
 import { getPersonAttendanceStats, ROLE_BADGES, ATTENDANCE_STATUS_MAP, calculateAge } from '../utils/churchUtils';
+import { EditPersonModal } from './EditPersonModal';
 
 export const PersonProfileModal: React.FC = () => {
   const {
@@ -32,6 +33,7 @@ export const PersonProfileModal: React.FC = () => {
   } = useChurch();
 
   const [activeTab, setActiveTab] = useState<'info' | 'services' | 'attendance' | 'visitation' | 'parent'>('info');
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   if (!person) return null;
 
@@ -136,6 +138,13 @@ export const PersonProfileModal: React.FC = () => {
                     <span>واتساب</span>
                   </a>
                 )}
+                <button
+                  onClick={() => setIsEditOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>تعديل البيانات</span>
+                </button>
                 <button
                   onClick={() => openLogVisitModal(person)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-colors"
@@ -515,6 +524,15 @@ export const PersonProfileModal: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Person Modal */}
+      {isEditOpen && (
+        <EditPersonModal
+          person={person}
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+        />
+      )}
     </div>
   );
 };

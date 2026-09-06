@@ -54,7 +54,7 @@ export const AddPersonModal: React.FC<{
   const [birthDate, setBirthDate] = useState('2012-05-15');
   const [stage, setStage] = useState('إعدادي');
   const [school, setSchool] = useState('');
-  const [address, setAddress] = useState('القاهرة');
+  const [address, setAddress] = useState('');
 
   // Parent Info State
   const [parentName, setParentName] = useState('');
@@ -103,7 +103,7 @@ export const AddPersonModal: React.FC<{
       setBirthDate('2012-05-15');
       setStage('إعدادي');
       setSchool('');
-      setAddress('القاهرة');
+      setAddress('');
       setParentName('');
       setParentPhone('');
       setParentRelation('أب');
@@ -116,13 +116,16 @@ export const AddPersonModal: React.FC<{
       // Generate clean unique code
       setCode(generateNewCode('member'));
 
-      // Set initial service assignments
+      // Set initial service assignments with matching meeting
       if (data.services.length > 0) {
         setAssignServicesNow(true);
+        const initialService = data.services[0];
+        const initialMeetings = data.meetings.filter(m => m.serviceId === initialService.id);
+
         setServiceAssignments([
           {
-            serviceId: data.services[0].id,
-            meetingId: '',
+            serviceId: initialService.id,
+            meetingId: initialMeetings.length > 0 ? initialMeetings[0].id : '',
             groupId: '',
             role: 'member',
             roleTitle: ''
@@ -133,7 +136,7 @@ export const AddPersonModal: React.FC<{
         setServiceAssignments([]);
       }
     }
-  }, [isOpen, data.services]);
+  }, [isOpen, data.services, data.meetings]);
 
   if (!isOpen) return null;
 
@@ -169,6 +172,7 @@ export const AddPersonModal: React.FC<{
     // Pick first service not yet assigned, or fallback to first
     const assignedIds = new Set(serviceAssignments.map(s => s.serviceId));
     const nextService = data.services.find(s => !assignedIds.has(s.id)) || data.services[0];
+    const svcMeetings = data.meetings.filter(m => m.serviceId === nextService.id);
 
     const mappedRole: UserRole =
       generalRole === 'priest' ? 'priest' : generalRole === 'leader' ? 'leader' : generalRole === 'servant' ? 'servant' : 'member';
@@ -177,7 +181,7 @@ export const AddPersonModal: React.FC<{
       ...prev,
       {
         serviceId: nextService.id,
-        meetingId: '',
+        meetingId: svcMeetings.length > 0 ? svcMeetings[0].id : '',
         groupId: '',
         role: mappedRole,
         roleTitle: ''
@@ -193,11 +197,11 @@ export const AddPersonModal: React.FC<{
     setServiceAssignments(prev => {
       const copy = [...prev];
       if (field === 'serviceId') {
-        // Reset meeting and group when changing service to avoid cross-service mismatch
+        const svcMeetings = data.meetings.filter(m => m.serviceId === val);
         copy[idx] = {
           ...copy[idx],
           serviceId: val,
-          meetingId: '',
+          meetingId: svcMeetings.length > 0 ? svcMeetings[0].id : '',
           groupId: ''
         };
       } else {
@@ -557,16 +561,16 @@ export const AddPersonModal: React.FC<{
             </div>
           </div>
 
-          {/* Section 2: Many-to-Many Service Assignment */}
+          {/* Section 2: Service & Meeting Assignment */}
           <div className="p-4 rounded-2xl bg-amber-50/30 border border-amber-200 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="font-extrabold text-amber-950 text-xs flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-amber-700" />
-                  <span>2. تسكين الخدمات والمجموعات (Many-to-Many)</span>
+                  <span>2. تسكين الخدمات والاجتماعات الأسبوعية</span>
                 </h4>
                 <p className="text-[11px] text-amber-800 mt-0.5">
-                  تحديد الخدمات التي ينتمي إليها الشخص، والاجتماع والمجموعة ودوره في كل خدمة
+                  تحديد الخدمات التي ينتمي إليها الشخص، والاجتماع ودوره في كل خدمة
                 </p>
               </div>
 
@@ -620,16 +624,15 @@ export const AddPersonModal: React.FC<{
                   <div className="space-y-2.5">
                     {serviceAssignments.map((row, idx) => {
                       const filteredMeetings = data.meetings.filter(m => m.serviceId === row.serviceId);
-                      const filteredGroups = data.groups.filter(g => g.serviceId === row.serviceId);
 
                       return (
                         <div
                           key={idx}
                           className="p-3 bg-white rounded-xl border border-amber-200/90 shadow-2xs space-y-2"
                         >
-                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                             {/* Service Select */}
-                            <div>
+                            <div className="sm:col-span-4">
                               <label className="text-[10px] text-slate-500 font-bold block mb-0.5">الخدمة:</label>
                               <select
                                 value={row.serviceId}
@@ -638,14 +641,14 @@ export const AddPersonModal: React.FC<{
                               >
                                 {data.services.map(s => (
                                   <option key={s.id} value={s.id}>
-                                    {s.icon} {s.name}
+                                    {s.icon || '⛪'} {s.name} ({s.stage})
                                   </option>
                                 ))}
                               </select>
                             </div>
 
                             {/* Role Select */}
-                            <div>
+                            <div className="sm:col-span-3">
                               <label className="text-[10px] text-slate-500 font-bold block mb-0.5">الدور في الخدمة:</label>
                               <select
                                 value={row.role}
@@ -660,51 +663,41 @@ export const AddPersonModal: React.FC<{
                             </div>
 
                             {/* Meeting Select */}
-                            <div>
-                              <label className="text-[10px] text-slate-500 font-bold block mb-0.5">الاجتماع:</label>
+                            <div className={serviceAssignments.length > 1 ? "sm:col-span-4" : "sm:col-span-5"}>
+                              <label className="text-[10px] text-slate-500 font-bold block mb-0.5">الاجتماع الأسبوعي:</label>
                               <select
                                 value={row.meetingId}
                                 onChange={e => updateServiceRow(idx, 'meetingId', e.target.value)}
-                                className="w-full p-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs"
+                                className="w-full p-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs font-semibold"
                               >
-                                <option value="">(عام لكافة الاجتماعات)</option>
-                                {filteredMeetings.map(m => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.name}
-                                  </option>
-                                ))}
+                                {filteredMeetings.length === 0 ? (
+                                  <option value="">(عام لكافة الاجتماعات - لا يوجد اجتماع مسجل)</option>
+                                ) : (
+                                  <>
+                                    <option value="">(عام لكافة اجتماعات الخدمة)</option>
+                                    {filteredMeetings.map(m => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.name} ({m.dayOfWeek} {m.time ? '- ' + m.time : ''})
+                                      </option>
+                                    ))}
+                                  </>
+                                )}
                               </select>
                             </div>
 
-                            {/* Group & Remove */}
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1">
-                                <label className="text-[10px] text-slate-500 font-bold block mb-0.5">المجموعة / الأسرة:</label>
-                                <select
-                                  value={row.groupId}
-                                  onChange={e => updateServiceRow(idx, 'groupId', e.target.value)}
-                                  className="w-full p-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs"
-                                >
-                                  <option value="">(بدون مجموعة)</option>
-                                  {filteredGroups.map(g => (
-                                    <option key={g.id} value={g.id}>
-                                      {g.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {serviceAssignments.length > 1 && (
+                            {/* Remove button if multiple */}
+                            {serviceAssignments.length > 1 && (
+                              <div className="sm:col-span-1 flex justify-end">
                                 <button
                                   type="button"
                                   onClick={() => removeServiceRow(idx)}
-                                  className="mt-4 p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer w-full flex items-center justify-center border border-rose-200"
                                   title="حذف هذا التسكين"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Optional custom role title */}
