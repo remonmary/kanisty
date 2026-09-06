@@ -1,0 +1,6 @@
+{
+  "name": "كنيستي - نظام إدارة الكنائس والخدمات",
+  "description": "نظام كنيستي لإدارة الكنائس، الخدمات، الاجتماعات، الخدام والمخدومين، الحضور والافتقاد، التحضير والتقارير مع عزل كامل لكل كنيسة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
