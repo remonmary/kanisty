@@ -34,7 +34,6 @@ export const Navbar: React.FC<{
     openLogVisitModal
   } = useChurch();
 
-  const [isChurchDropdownOpen, setIsChurchDropdownOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -151,78 +150,19 @@ export const Navbar: React.FC<{
         {/* Vertical divider */}
         <div className="h-8 w-px bg-slate-200 mx-2 hidden sm:block" />
 
-        {/* Church Name & Dropdown Selector */}
-        <div className="relative">
-          <button
-            onClick={() => setIsChurchDropdownOpen(!isChurchDropdownOpen)}
-            className="flex flex-col items-start text-right hover:opacity-80 transition-opacity"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-slate-800 truncate max-w-[170px]">
-                {activeChurch?.name || 'كنيسة الشهيد مارجرجس'}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </div>
-            <span className="text-[10px] text-slate-400">
-              {activeChurch?.region || 'المنطقة التعليمية - الجيزة'}
+        {/* Active Church Identity (Strictly Isolated - No Cross-Church Leaking) */}
+        <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl">
+          <div className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center text-sm font-bold shadow-2xs shrink-0">
+            ⛪
+          </div>
+          <div className="flex flex-col text-right">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-[180px]" title={activeChurch?.name}>
+              {activeChurch?.name || 'كنيستي'}
             </span>
-          </button>
-
-          {isChurchDropdownOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setIsChurchDropdownOpen(false)}
-              />
-              <div className="absolute left-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50">
-                <div className="px-3.5 py-2 border-b border-slate-100">
-                  <p className="text-[11px] font-bold text-slate-500 uppercase">
-                    الكنائس المتاحة (عزل تام للبيانات)
-                  </p>
-                </div>
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {churches.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        setActiveChurchId(c.id);
-                        setIsChurchDropdownOpen(false);
-                      }}
-                      className={`w-full px-3.5 py-2.5 text-right flex items-center justify-between transition-colors ${
-                        c.id === activeChurch?.id
-                          ? 'bg-amber-50 text-amber-900 font-bold'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <div>
-                        <p className="text-xs font-bold leading-tight">{c.name}</p>
-                        <p className="text-[10px] text-slate-500">{c.region}</p>
-                      </div>
-                      {c.id === activeChurch?.id && (
-                        <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">
-                          الحالية
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {onOpenAddChurch && (
-                  <div className="p-2 border-t border-slate-100">
-                    <button
-                      onClick={() => {
-                        setIsChurchDropdownOpen(false);
-                        onOpenAddChurch();
-                      }}
-                      className="w-full py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>تسجيل كنيسة جديدة</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+            <span className="text-[10px] text-amber-700 font-medium truncate max-w-[180px]">
+              {activeChurch?.region || 'إدارة الكنيسة'}
+            </span>
+          </div>
         </div>
 
         {/* Account & Role Switcher */}

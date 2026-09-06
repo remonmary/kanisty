@@ -166,6 +166,11 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const setActiveChurchId = (id: string) => {
+    // Strict isolation: if logged in, active church must match account's church
+    if (currentAccount && currentAccount.churchId !== id) {
+      console.warn('Strict tenant isolation: Cannot switch to another church without logging in with that church account.');
+      return;
+    }
     setActiveChurchIdState(id);
     localStorage.setItem('kenisati_active_church_id', id);
   };
@@ -179,6 +184,10 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentAccountState(acc);
     if (acc) {
       localStorage.setItem('kenisati_current_account', JSON.stringify(acc));
+      if (acc.churchId) {
+        setActiveChurchIdState(acc.churchId);
+        localStorage.setItem('kenisati_active_church_id', acc.churchId);
+      }
     } else {
       localStorage.removeItem('kenisati_current_account');
     }
@@ -192,36 +201,42 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const loadAll = useCallback(async () => {
     try {
       setIsLoading(true);
-      const churchList = await api.getChurches();
-      setChurches(churchList);
-
-      let targetChurchId = activeChurchId;
-      if (!churchList.some(c => c.id === targetChurchId) && churchList.length > 0) {
-        targetChurchId = churchList[0].id;
-        setActiveChurchId(targetChurchId);
-      }
+      // Determine the target church strictly from authenticated account or active state
+      const targetChurchId = currentAccount?.churchId || activeChurchId;
 
       if (targetChurchId) {
+        // Only load the current church to avoid exposing other churches
+        const churchList = await api.getChurches(targetChurchId);
+        setChurches(churchList);
+
         const churchData = await api.getChurchData(targetChurchId);
         setData(churchData);
 
-        // Load accounts
+        // Load accounts for this church strictly
         const churchAccounts = await api.getAccounts(targetChurchId);
         setAccounts(churchAccounts);
 
-        // Update current account if church changed
-        if (currentAccount && currentAccount.churchId !== targetChurchId) {
-          const matched = churchAccounts.find(a => a.churchId === targetChurchId);
-          if (matched) {
-            setCurrentAccount(matched);
+        // Keep current account in sync
+        if (currentAccount && currentAccount.churchId === targetChurchId) {
+          const freshAccount = churchAccounts.find(a => a.id === currentAccount.id);
+          if (freshAccount) {
+            setCurrentAccountState(freshAccount);
+            localStorage.setItem('kenisati_current_account', JSON.stringify(freshAccount));
           }
+        } else if (churchAccounts.length > 0) {
+          setCurrentAccountState(churchAccounts[0]);
+          localStorage.setItem('kenisati_current_account', JSON.stringify(churchAccounts[0]));
         }
 
         // Verify current simulated user exists in church
         if (!churchData.persons.some(p => p.id === currentUserId) && churchData.persons.length > 0) {
           const priest = churchData.persons.find(p => p.code?.startsWith('PR') || p.name.includes('القمص') || p.name.includes('أبونا'));
           const defaultUser = priest ? priest.id : churchData.persons[0].id;
-          setCurrentUserId(defaultUser);
+          setCurrentUserIdState(defaultUser);
+          localStorage.setItem('kenisati_current_user_id', defaultUser);
+        } else if (churchData.persons.length === 0) {
+          setCurrentUserIdState('');
+          localStorage.removeItem('kenisati_current_user_id');
         }
       }
     } catch (err) {
@@ -229,11 +244,11 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       setIsLoading(false);
     }
-  }, [activeChurchId, currentUserId]);
+  }, [activeChurchId, currentAccount?.id, currentAccount?.churchId, currentUserId]);
 
   useEffect(() => {
     loadAll();
-  }, [activeChurchId]);
+  }, [activeChurchId, currentAccount?.churchId]);
 
   const activeChurch = churches.find(c => c.id === activeChurchId) || data.church || null;
   const currentUser = data.persons.find(p => p.id === currentUserId) || null;
@@ -323,12 +338,19 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(true);
       const res = await api.login(phone, pass);
       if (res.success && res.church && res.account) {
-        setActiveChurchId(res.church.id);
+        setActiveChurchIdState(res.church.id);
+        localStorage.setItem('kenisati_active_church_id', res.church.id);
         setCurrentAccount(res.account);
+        setChurches([res.church]);
         setIsLoggedIn(true);
         localStorage.setItem('kenisati_logged_in', 'true');
         showToast(`أهلاً بك يا ${res.account.name} في ${res.church.name}`);
-        await loadAll();
+        
+        // Strictly fetch this church's clean data
+        const churchData = await api.getChurchData(res.church.id);
+        setData(churchData);
+        const churchAccounts = await api.getAccounts(res.church.id);
+        setAccounts(churchAccounts);
         return true;
       }
       return false;
@@ -344,8 +366,15 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const logout = () => {
     setIsLoggedIn(false);
     setCurrentAccount(null);
+    setData(emptyData);
+    setAccounts([]);
+    setChurches([]);
+    setActiveChurchIdState('');
+    setCurrentUserIdState('');
     localStorage.setItem('kenisati_logged_in', 'false');
     localStorage.removeItem('kenisati_current_account');
+    localStorage.removeItem('kenisati_active_church_id');
+    localStorage.removeItem('kenisati_current_user_id');
     showToast('تم تسجيل الخروج بنجاح');
   };
 
@@ -363,12 +392,19 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const res = await api.registerChurch(payload);
       if (res.success && res.church && res.account) {
-        setActiveChurchId(res.church.id);
+        setActiveChurchIdState(res.church.id);
+        localStorage.setItem('kenisati_active_church_id', res.church.id);
         setCurrentAccount(res.account);
+        setChurches([res.church]);
         setIsLoggedIn(true);
         localStorage.setItem('kenisati_logged_in', 'true');
         showToast(`تم تسجيل كنيسة: ${res.church.name} بنجاح!`);
-        await loadAll();
+        
+        // Newly registered church will have 0 persons, 0 attendance, 0 services
+        const churchData = await api.getChurchData(res.church.id);
+        setData(churchData);
+        const churchAccounts = await api.getAccounts(res.church.id);
+        setAccounts(churchAccounts);
         return res.church;
       }
       throw new Error('تعذر إنشاء الكنيسة');
@@ -412,8 +448,8 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!activeChurch) return;
     setIsLoading(true);
     try {
-      await api.resetChurchData(activeChurch.id, currentAccount?.name || 'مسؤول الكنيسة');
-      await loadAll();
+      const res = await api.resetChurchData(activeChurch.id, currentAccount?.name || 'مسؤول الكنيسة');
+      setData(res);
       showToast(`تم تصفير بيانات كنيسة (${activeChurch.name}) بنجاح. يمكنك الآن البدء من الصفر.`);
     } finally {
       setIsLoading(false);

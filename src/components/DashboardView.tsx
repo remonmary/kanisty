@@ -66,19 +66,19 @@ export const DashboardView: React.FC<{
   const presentRecords = data.attendance.filter(a => a.status === 'present').length;
   const churchAttendanceRate = totalAttendanceRecords > 0
     ? Math.round((presentRecords / totalAttendanceRecords) * 100)
-    : 84;
+    : 0;
 
   // Servants and members count
   const totalPersons = data.persons.filter(p => p.status !== 'archived').length;
   const servantsCount = data.memberships.filter(m => (m.role === 'servant' || m.role === 'leader') && m.isActive).length;
   const membersCount = data.memberships.filter(m => m.role === 'member' && m.isActive).length;
 
-  // Latest announcement
-  const latestAnnouncement = data.announcements[0] || {
-    id: 'ann-1',
-    title: 'إعلان هام للخدام',
-    content: 'الرجاء مراجعة سجلات الافتقاد الخاصة بشهر سبتمبر قبل يوم الجمعة القادم لحصر نسب الغياب في الصيف.',
-    authorName: 'أبونا مرقس',
+  // Latest announcement (only genuine from church data)
+  const latestAnnouncement = data.announcements.length > 0 ? data.announcements[0] : {
+    id: 'ann-empty',
+    title: 'لوحة إعلانات الكنيسة',
+    content: 'لا توجد إعلانات أو تنبيهات منشورة بالكنيسة حالياً. يمكن للكهنة وأمناء الخدمة إضافة إعلانات جديدة من قسم لوحة الإعلانات.',
+    authorName: 'إدارة الكنيسة',
     date: new Date().toISOString().split('T')[0]
   };
 
@@ -93,8 +93,43 @@ export const DashboardView: React.FC<{
     window.open(`https://wa.me/20${cleanPhone.replace(/^0+/, '')}?text=${message}`, '_blank');
   };
 
+  const isBrandNewChurch = totalPersons === 0 && data.services.length === 0;
+
   return (
-    <div className="space-y-8 pb-12 select-none font-sans">
+    <div className="space-y-6 pb-12 select-none font-sans">
+      {/* Brand New / Clean Church Welcome Banner */}
+      {isBrandNewChurch && (
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✨</span>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base">
+                كنيستك جاهزة للبدء من الصفر تماماً!
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+              قاعدة بيانات الكنيسة خالية ونظيفة بالكامل. يمكنك الآن إدخال أول خدمة وأول مخدوم لبدء المتابعة الروحية والإدارية لكنيستك.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onOpenAddPerson}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة مخدوم جديد</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('services')}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Layers className="w-4 h-4" />
+              <span>إضافة خدمة</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4 Professional Metric Cards Grid (Matching Theme) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Card 1: Members */}
@@ -106,10 +141,12 @@ export const DashboardView: React.FC<{
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg text-lg leading-none">
               👥
             </div>
-            <span className="text-xs text-green-600 font-bold">+12%</span>
+            <span className="text-xs text-blue-600 font-bold">
+              {totalPersons > 0 ? `${totalPersons} شخص` : 'جديد'}
+            </span>
           </div>
           <div className="text-2xl font-bold text-slate-800">
-            {totalPersons > 0 ? totalPersons.toLocaleString('ar-EG') : '1,248'}
+            {totalPersons.toLocaleString('ar-EG')}
           </div>
           <div className="text-xs text-slate-500">إجمالي المخدومين والمسجلين</div>
         </div>
@@ -123,10 +160,12 @@ export const DashboardView: React.FC<{
             <div className="p-2 bg-purple-50 text-purple-600 rounded-lg text-lg leading-none">
               🧑‍🏫
             </div>
-            <span className="text-xs text-slate-400 font-bold">ثابت</span>
+            <span className="text-xs text-purple-600 font-bold">
+              {servantsCount > 0 ? `${servantsCount} خادم` : '0'}
+            </span>
           </div>
           <div className="text-2xl font-bold text-slate-800">
-            {servantsCount > 0 ? servantsCount.toLocaleString('ar-EG') : '156'}
+            {servantsCount.toLocaleString('ar-EG')}
           </div>
           <div className="text-xs text-slate-500">إجمالي الخدام وأمناء الخدمة</div>
         </div>
@@ -140,7 +179,9 @@ export const DashboardView: React.FC<{
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg text-lg leading-none">
               📈
             </div>
-            <span className="text-xs text-green-600 font-bold">+5%</span>
+            <span className="text-xs text-emerald-600 font-bold">
+              {totalAttendanceRecords > 0 ? `${totalAttendanceRecords} سجل` : '0 سجل'}
+            </span>
           </div>
           <div className="text-2xl font-bold text-slate-800">
             {churchAttendanceRate}%
@@ -157,12 +198,12 @@ export const DashboardView: React.FC<{
             <div className="p-2 bg-amber-50 text-amber-600 rounded-lg text-lg leading-none">
               📞
             </div>
-            <span className="text-xs text-red-600 font-bold">
-              {urgentAlerts.length > 0 ? `${urgentAlerts.length} عاجل` : '-2%'}
+            <span className={`text-xs font-bold ${urgentAlerts.length > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              {urgentAlerts.length > 0 ? `${urgentAlerts.length} عاجل` : 'منتظم'}
             </span>
           </div>
           <div className="text-2xl font-bold text-slate-800">
-            {urgentAlerts.length > 0 ? urgentAlerts.length : '342'}
+            {urgentAlerts.length.toLocaleString('ar-EG')}
           </div>
           <div className="text-xs text-slate-500">افتقاد مطلوب هذا الشهر</div>
         </div>

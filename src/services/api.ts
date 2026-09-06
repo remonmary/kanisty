@@ -37,8 +37,9 @@ export interface ScopedChurchData {
 }
 
 export const api = {
-  async getChurches(): Promise<Church[]> {
-    const res = await fetch('/api/churches');
+  async getChurches(churchId?: string): Promise<Church[]> {
+    const url = churchId ? `/api/churches?churchId=${encodeURIComponent(churchId)}` : '/api/churches';
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to load churches');
     return res.json();
   },
