@@ -89,12 +89,6 @@ export const AuthView: React.FC = () => {
     }
   };
 
-  const quickLogin = (phone: string, pass: string) => {
-    setLoginPhone(phone);
-    setLoginPassword(pass);
-    login(phone, pass);
-  };
-
   return (
     <div
       className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-slate-900 text-slate-100 font-sans select-none"
@@ -203,40 +197,6 @@ export const AuthView: React.FC = () => {
               <span>{isSubmitting ? 'جاري التحقق...' : 'دخول إلى حساب الكنيسة'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
-
-            {/* Quick Demo Selector for fast inspection */}
-            <div className="pt-4 border-t border-slate-700/60 mt-4">
-              <div className="flex items-center justify-between text-xs text-slate-400 mb-2.5">
-                <span className="font-semibold">حسابات تجريبية سريعة بنقرة واحدة:</span>
-                <span className="text-[10px] text-amber-400">كلمة السر: 123456</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => quickLogin('01000000001', '123456')}
-                  className="p-2 bg-slate-900/60 hover:bg-slate-700 border border-slate-700/80 rounded-lg text-right text-xs transition-colors flex flex-col"
-                >
-                  <span className="font-bold text-white">القمص متى</span>
-                  <span className="text-[10px] text-amber-400">كاهن / مدير</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickLogin('01111111112', '123456')}
-                  className="p-2 bg-slate-900/60 hover:bg-slate-700 border border-slate-700/80 rounded-lg text-right text-xs transition-colors flex flex-col"
-                >
-                  <span className="font-bold text-white">أ. مارك نبيل</span>
-                  <span className="text-[10px] text-blue-400">أمين خدمة</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => quickLogin('01033333333', '123456')}
-                  className="p-2 bg-slate-900/60 hover:bg-slate-700 border border-slate-700/80 rounded-lg text-right text-xs transition-colors flex flex-col"
-                >
-                  <span className="font-bold text-white">تريزا عادل</span>
-                  <span className="text-[10px] text-emerald-400">خادمة</span>
-                </button>
-              </div>
-            </div>
           </form>
         )}
 

@@ -222,10 +222,13 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (freshAccount) {
             setCurrentAccountState(freshAccount);
             localStorage.setItem('kenisati_current_account', JSON.stringify(freshAccount));
+          } else {
+            // Account no longer exists in this church, force logout
+            setIsLoggedIn(false);
+            setCurrentAccountState(null);
+            localStorage.setItem('kenisati_logged_in', 'false');
+            localStorage.removeItem('kenisati_current_account');
           }
-        } else if (churchAccounts.length > 0) {
-          setCurrentAccountState(churchAccounts[0]);
-          localStorage.setItem('kenisati_current_account', JSON.stringify(churchAccounts[0]));
         }
 
         // Verify current simulated user exists in church
